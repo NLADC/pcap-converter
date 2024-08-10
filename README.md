@@ -46,7 +46,7 @@ To install pcap-converter to a place where the dissector can find it, simply do:
 ```
 cargo install --path .
 ```
-This will most likely put the binary in `~/.cargo/bin`, which is fine if you are the one running the dissector locally. If not, make sure to copy the binary to a directory that is in everyone's `$PATH`, e.g.
+This will most likely put the binary in `~/.cargo/bin`, which is fine if you are the only one running the dissector locally on this computer. If not, make sure to copy the binary to a directory that is in everyone's `$PATH`, e.g.
 ```
 sudo cp target/release/pcap-converter /usr/local/bin
 ``` 
