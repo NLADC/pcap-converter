@@ -1,6 +1,6 @@
 # pcap-converter
 
-Dissector helper tool in Rust that directly converts specific information the dissector needs from pcap to parquet, which is the file format the dissector uses for its analysis, replacing the use of tshark by the dissector; which is much slower (because it is a general purpose pcap analysis tool rather than a specific one, and it cannot export to parquet directly).
+pcap-converter is a Dissector helper tool written in Rust. pcap-converter directly converts a pcap file into parquet, which is the file format the dissector uses for its analysis. Only information relevant for analysis is extracted by pcap-converter, making it much faster than the dissector's fallback approach of using tshark for extracting the relevant information from a pcap file.
 ```
 Usage: pcap-converter [OPTIONS] --file <FILE> --out <OUT>
 
@@ -52,7 +52,7 @@ sudo cp target/release/pcap-converter /usr/local/bin
 ``` 
 
 ### Usage
-The dissector automatically detects the presence of pcap-converter and uses it. If the dissector uses pcap-converter, the number of packets processed will be printed on screen as they are processed.:
+The dissector automatically detects the presence of pcap-converter and uses it, unless explicitly told not to. If the dissector uses pcap-converter, the number of packets processed will be printed on screen as they are processed. 
 
 ````
 python src/main.py -f ../../data/pcap/anon-Booter8.pcap 
@@ -71,8 +71,27 @@ Packets: 5,758,016 Errors: 29,809
 
 ````
 
+Just for comparison, the same file processed by dissector using tshark instead of pcap-converter. The dissector needs roughly 80 seconds to process and analyse the same pcap, as opposed to just 15 seconds when using pcap-converter (as shown above). 
+```
+python src/main.py -f ../../data/pcap/anon-Booter8.pcap --tshark
+[INFO] 
+    ____  _                     __            
+   / __ \(_)____________  _____/ /_____  _____
+  / / / / / ___/ ___/ _ \/ ___/ __/ __ \/ ___/
+ / /_/ / (__  |__  )  __/ /__/ /_/ /_/ / /    
+/_____/_/____/____/\___/\___/\__/\____/_/     
 
-## Parquet schema 
+[INFO] Conversion took 73.43s
+[INFO] Extracting attack vectors.
+[INFO] Analysis took 6.24s
+```
+
+For bigger pcap's the speed gains increase: A pcap containing 36,6 million packets that takes the dissector over thirty minutes to process when using tshark, can be processed in under two minutes (105 seconds) using pcap-converter. 
+
+## Other uses
+Although pcap-converter is written explicitly with the Dissector in mind, you can use it on its own to convert a pcap file to parquet for easy analysis of packet characteristics. The dissector uses [duckdb](https://duckdb.org/), but any tool that can handle parquet files is suitable.  
+
+### Parquet schema 
 
 The (duckdb) table below shows the schema/column information in the resulting parquet file.
 ```
@@ -98,11 +117,6 @@ The (duckdb) table below shows the schema/column information in the resulting pa
 │ col_info            │ VARCHAR     │ YES     │         │         │         │
 │ col_source          │ VARCHAR     │ YES     │         │         │         │
 │ col_destination     │ VARCHAR     │ YES     │         │         │         │
-│ http_request_uri    │ VARCHAR     │ YES     │         │         │         │
-│ http_host           │ VARCHAR     │ YES     │         │         │         │
-│ http_request_method │ VARCHAR     │ YES     │         │         │         │
-│ http_user_agent     │ VARCHAR     │ YES     │         │         │         │
-│ http_file_data      │ VARCHAR     │ YES     │         │         │         │
 │ dhip_device         │ VARCHAR     │ YES     │         │         │         │
 │ pcap_file           │ VARCHAR     │ YES     │         │         │         │
 │ udp_srcport         │ USMALLINT   │ YES     │         │         │         │
