@@ -86,7 +86,7 @@ python src/main.py -f ../../data/pcap/anon-Booter8.pcap --tshark
 [INFO] Analysis took 6.24s
 ```
 
-For bigger pcap's the speed gains increase: A pcap containing 36,6 million packets that takes the dissector over thirty minutes to process when using tshark, can be processed in under two minutes (105 seconds) using pcap-converter. 
+For bigger pcap's the speed gains increase: A pcap of roughly 50GB, containing 36.6 million packets, takes the dissector over thirty minutes to process when using tshark. With pcap-converter this can be processed in under two minutes (105 seconds). 
 
 ## Other uses
 Although pcap-converter is written explicitly with the Dissector in mind, you can use it on its own to convert a pcap file to parquet for easy analysis of packet characteristics. The dissector uses [duckdb](https://duckdb.org/), but any tool that can handle parquet files is suitable.  
