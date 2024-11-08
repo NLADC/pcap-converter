@@ -183,7 +183,8 @@ impl PacketStats {
     // fn analyze_packet_headers(&mut self, pkt_headers: PacketHeaders, cache: &mut HashMap<u16, FragmentCache>) {
     fn analyze_packet_headers(&mut self, pkt_headers: PacketHeaders) {
 
-        let EtherType(et) = pkt_headers.link.clone().unwrap().ether_type;
+        let EtherType(et) = pkt_headers.link.clone().unwrap().ethernet2().unwrap().ether_type;
+
         self.eth_type = Some(et);
 
         let mut transport_header: Option<TransportHeader> = pkt_headers.transport.clone();
