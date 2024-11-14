@@ -129,7 +129,7 @@ impl PacketStats {
             flags.replace_range(3..4, "A")
         };
         if tcp.urg {
-            flags.replace_range(1..3, "U")
+            flags.replace_range(2..3, "U")
         };
         if tcp.ece {
             flags.replace_range(1..2, "E")
