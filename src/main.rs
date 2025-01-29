@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use pcap_parser::*;
+use tracing::level_filters::LevelFilter;
 use std::{fmt::Debug, fs};
 use std::fs::*;
 use rand::distributions::{Alphanumeric, DistString};
@@ -8,10 +9,7 @@ use std::env;
 use std::thread::{self, JoinHandle};
 use duckdb::Connection;
 use crossbeam::channel::{bounded, unbounded};
-// use log::debug;
-// use log::error;
-use log::info;
-// use log::warn;
+use tracing::{info, debug};
 
 use packetstats::*;
 use statscollector::*;
@@ -54,9 +52,19 @@ pub struct PktMsg {
 // ****************************************************************************************************** //
 
 fn main() -> Result<()> {
-    env_logger::init();
+    // env_logger::init();
 
     let args = Args::parse();
+    let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stderr());
+    let level = LevelFilter::OFF;
+    // let mut level = LevelFilter::INFO;
+    // if args.debug {
+    //     level = LevelFilter::DEBUG
+    // }
+    tracing_subscriber::fmt()
+        .with_writer(non_blocking)
+        .with_max_level(level)
+        .init();
 
     // Create a temporary file for storing first pass parquet file
     let temp_file = format!("{}/pcap-converter-{}.parquet", env::temp_dir().display(), Alphanumeric.sample_string(&mut rand::thread_rng(), 16));
@@ -111,6 +119,7 @@ fn main() -> Result<()> {
                 packet_stats.frame_time = Some(pkt_msg.frame_time);
                 packet_stats.frame_len = Some(pkt_msg.frame_len);
                 let slice = pkt_msg.data;
+                // debug!("packet len={}",pkt_msg.caplen);
                 let pkt_data = pcap_parser::data::get_packetdata(&slice, pkt_msg.linktype, pkt_msg.caplen as usize).expect("Error getting packet data");
 
                 let result = packet_stats.analyze_packet(pkt_data);
