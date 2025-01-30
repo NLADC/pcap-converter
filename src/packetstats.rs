@@ -155,17 +155,7 @@ impl PacketStats {
                         // eprintln!("{:?}", slice_error);
                         debug!("slice error: {}", slice_error);
                         self.errors += 1;
-                        debug!("trying different approach");
-                        let result = LaxPacketHeaders::from_ethernet(eth_data);
-                        match result {
-                            Err(value) => debug!("Err {:?}", value),
-                            Ok(value) => {
-                                debug!("link: {:?}", value.link);
-                                debug!("vlan: {:?}", value.vlan);
-                                debug!("net: {:?}", value.net); // contains ip & arp
-                                debug!("transport: {:?}", value.transport);
-                            }
-                        }                    }
+                    }
                 }
             }
 
@@ -204,7 +194,7 @@ impl PacketStats {
             Some(NetHeaders::Ipv4(ref ip, _)) => {
                 // May be replaced by transport or application protocol later on
                 self.col_protocol = Some("IPv4".to_string());
-                // self.frame_len = Some(ip.total_len as u32);
+                self.frame_len = Some(ip.total_len as u32);
                 self.ip_id = ip.identification;
                 self.ip_total_len = ip.total_len;
 
@@ -252,7 +242,7 @@ impl PacketStats {
             Some(NetHeaders::Ipv6(ref ip, _)) => {
                 // May be replaced by transport or application protocol later on
                 self.col_protocol = Some("IPv6".to_string());
-                // self.frame_len = Some((ip.payload_length+ip.header_len() as u16) as u32);
+                self.frame_len = Some((ip.payload_length+ip.header_len() as u16) as u32);
                 self.ip_src = Some(Ipv6Addr::from(ip.source).to_string());
                 self.ip_dst = Some(Ipv6Addr::from(ip.destination).to_string());
                 self.col_source = Some(Ipv6Addr::from(ip.source).to_string());
