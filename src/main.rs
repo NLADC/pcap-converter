@@ -9,7 +9,7 @@ use std::env;
 use std::thread::{self, JoinHandle};
 use duckdb::Connection;
 use crossbeam::channel::{bounded, unbounded};
-use tracing::{info, debug};
+use tracing::info;
 
 use packetstats::*;
 use statscollector::*;
