@@ -37,6 +37,9 @@ struct Args {
     /// Number of processing threads
     #[arg(short, default_value("4")) ]
     j: isize,
+    /// Show debug information
+    #[arg(short, long)]
+    debug: bool,
 }
 
 // ****************************************************************************************************** //
@@ -55,14 +58,19 @@ fn main() -> Result<()> {
     // env_logger::init();
 
     let args = Args::parse();
+
     let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stderr());
-    let level = LevelFilter::OFF;
-    // let mut level = LevelFilter::INFO;
-    // if args.debug {
-    //     level = LevelFilter::DEBUG
-    // }
+    // let level = LevelFilter::OFF;
+    let level = match args.debug {
+        true => LevelFilter::DEBUG,
+        false => LevelFilter::OFF,
+    };
+
     tracing_subscriber::fmt()
         .with_writer(non_blocking)
+        .with_file(true)
+        .with_line_number(true)
+        // .with_thread_ids(true)
         .with_max_level(level)
         .init();
 
