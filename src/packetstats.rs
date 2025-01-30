@@ -5,8 +5,8 @@ use etherparse::*;
 use etherparse::icmpv4::TYPE_DEST_UNREACH;
 use std::net::*;
 use domain::base::*;
-use log::debug;
 use serde_json::Value;
+use tracing::debug;
 
 #[derive(Default, Debug, Clone)]
 pub struct PacketStats {
@@ -46,7 +46,7 @@ pub struct PacketStats {
     pub errors: i64,
 }
 
-fn read_transport(ip_payload: IpPayloadSlice) -> Result<(Option<TransportHeader>, PayloadSlice), err::tcp::HeaderSliceError> {
+fn read_transport(ip_payload: LaxIpPayloadSlice) -> Result<(Option<TransportHeader>, PayloadSlice), err::tcp::HeaderSliceError> {
     // helper function to set the len source in len errors
     use etherparse::ip_number::*;
     use err::tcp::HeaderSliceError::*;
@@ -145,7 +145,7 @@ impl PacketStats {
     pub fn analyze_packet(&mut self, pkt_data: PacketData) -> Result<(),Error> {
         match pkt_data {
             PacketData::L2(eth_data) => {
-                let result = PacketHeaders::from_ethernet_slice(eth_data);
+                let result = LaxPacketHeaders::from_ethernet(eth_data);
                 match result {
                     Ok(pkt_headers) => {
                             self.analyze_packet_headers(pkt_headers);
@@ -155,12 +155,22 @@ impl PacketStats {
                         // eprintln!("{:?}", slice_error);
                         debug!("slice error: {}", slice_error);
                         self.errors += 1;
-                    }
+                        debug!("trying different approach");
+                        let result = LaxPacketHeaders::from_ethernet(eth_data);
+                        match result {
+                            Err(value) => debug!("Err {:?}", value),
+                            Ok(value) => {
+                                debug!("link: {:?}", value.link);
+                                debug!("vlan: {:?}", value.vlan);
+                                debug!("net: {:?}", value.net); // contains ip & arp
+                                debug!("transport: {:?}", value.transport);
+                            }
+                        }                    }
                 }
             }
 
             PacketData::L3(_, ip_data) => {
-                let result = PacketHeaders::from_ip_slice(ip_data);
+                let result = LaxPacketHeaders::from_ip(ip_data);
                 match result {
                     Ok(pkt_headers) => {
                         self.analyze_packet_headers(pkt_headers);
@@ -181,14 +191,14 @@ impl PacketStats {
 
 
     // fn analyze_packet_headers(&mut self, pkt_headers: PacketHeaders, cache: &mut HashMap<u16, FragmentCache>) {
-    fn analyze_packet_headers(&mut self, pkt_headers: PacketHeaders) {
+    fn analyze_packet_headers(&mut self, pkt_headers: LaxPacketHeaders) {
 
         let EtherType(et) = pkt_headers.link.clone().unwrap().ethernet2().unwrap().ether_type;
 
         self.eth_type = Some(et);
 
         let mut transport_header: Option<TransportHeader> = pkt_headers.transport.clone();
-        let mut transport_payload: PayloadSlice = pkt_headers.payload.clone();
+        let mut transport_payload: &[u8] = pkt_headers.payload.clone().slice();
 
         match pkt_headers.net {
             Some(NetHeaders::Ipv4(ref ip, _)) => {
@@ -221,14 +231,16 @@ impl PacketStats {
 
                     if ip.more_fragments {
                         match pkt_headers.payload {
-                            PayloadSlice::Ip(ip_payload) => {
+                            LaxPayloadSlice::Ip(ip_payload) => {
                                 let result = read_transport(ip_payload);
                                 match result {
                                     Ok((transport, payload)) => {
                                         transport_header = transport;
-                                        transport_payload = payload;
+                                        transport_payload = payload.slice();
                                     }
-                                    _ => (),
+                                    Err(e) => {
+                                        debug!("{:?}",e);
+                                    }
                                 }
                             }
                             _ => ()
@@ -265,7 +277,7 @@ impl PacketStats {
 
                 if udp.source_port == 53 || udp.destination_port == 53 {
                     self.col_protocol = Some("DNS".to_string());
-                    match Message::from_octets(&transport_payload.slice()) {
+                    match Message::from_octets(&transport_payload) {
                         Ok(dns) => {
                             match dns.first_question() {
                                 Some(question) => {
@@ -291,7 +303,7 @@ impl PacketStats {
                     self.col_protocol = Some("NTP".to_string());
                     // eprintln!("==> {:?}", &pkt_headers.payload.slice());
 
-                        match ntp_parser::parse_ntp(&transport_payload.slice()) {
+                        match ntp_parser::parse_ntp(&transport_payload) {
                             Ok(_ntp) => {
                             // eprintln!("{:?}", ntp);
                             // todo!();
@@ -299,7 +311,7 @@ impl PacketStats {
                         Err(_e) => {
                             // eprintln!("{:?}", _e);
                             // let i = pkt_headers.payload.slice();
-                            let i = transport_payload.slice();
+                            let i = transport_payload;
                             // Is it a V2 NTP packet?
                             if (i[0] >> 3) & 0b111 == 2 {
                                 // Yes, simply take the request code from the 4th byte
@@ -316,7 +328,7 @@ impl PacketStats {
                     // eprintln!("==> {:?}", &transport_payload.slice());
                     let replace_str = b' ';
                     let mut result = vec![];
-                    for &b in transport_payload.slice() {
+                    for &b in transport_payload {
                         if b < 32 || b > 127{
                             result.push(replace_str);
                         } else {
@@ -355,7 +367,7 @@ impl PacketStats {
                 if bytes[0] == TYPE_DEST_UNREACH {
                     // Payload contains header of the original packet
                     // eprintln!("{:?}", pkt_headers.payload);
-                    match PacketHeaders::from_ip_slice(transport_payload.slice()) {
+                    match PacketHeaders::from_ip_slice(transport_payload) {
                         Ok(icmp_ph) => {
                             // eprintln!("{:#?}", icmp_ph);
                             match icmp_ph.transport {
