@@ -4,7 +4,7 @@ use pcap_parser::*;
 use tracing::level_filters::LevelFilter;
 use std::{fmt::Debug, fs};
 use std::fs::*;
-use rand::distributions::{Alphanumeric, DistString};
+use rand::distr::{Alphanumeric, SampleString};
 use std::env;
 use std::thread::{self, JoinHandle};
 use duckdb::Connection;
@@ -75,7 +75,7 @@ fn main() -> Result<()> {
         .init();
 
     // Create a temporary file for storing first pass parquet file
-    let temp_file = format!("{}/pcap-converter-{}.parquet", env::temp_dir().display(), Alphanumeric.sample_string(&mut rand::thread_rng(), 16));
+    let temp_file = format!("{}/pcap-converter-{}.parquet", env::temp_dir().display(), Alphanumeric.sample_string(&mut rand::rng(), 16));
 
     // Open input (pcap) file
     info!("Opening input file ({})", args.file.clone());
